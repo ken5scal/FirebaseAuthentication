@@ -6,7 +6,6 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 
 
-
 class EmailPasswordActivity : AppCompatActivity() {
     val TAG = "emailActivity"
     private var mAuth: FirebaseAuth? = null
@@ -22,17 +21,31 @@ class EmailPasswordActivity : AppCompatActivity() {
     }
 
     private fun registerAccount(email: String, password: String) {
-        mAuth!!.createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        Log.d(TAG, "createUserWithEmail:success")
-                        val user = mAuth!!.currentUser
-                        Log.d(TAG, user.toString())
-                        // updateUI(user);
-                    } else {
-                        Log.d(TAG, "createUserWithEmail:failed: ", task.exception)
-                        // updateUI(null);
-                    }
-                }
+        mAuth!!.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                Log.d(TAG, "register by email/password:success")
+                val user = mAuth!!.currentUser
+                Log.d(TAG, user.toString())
+                // updateUI(user);
+            } else {
+                Log.d(TAG, "register by email/password:failed: ", task.exception)
+                // updateUI(null);
+            }
+        }
     }
+
+    private fun signInWithEmailAndPassword(email: String, password: String) {
+        mAuth!!.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                Log.d(TAG, "sign in by email/password: success")
+                val user = mAuth!!.currentUser
+                Log.d(TAG, user.toString())
+                // updateUI(user);
+            } else {
+                Log.d(TAG, "sign in by email/password: failed: ", task.exception)
+                // updateUI(null);
+            }
+        }
+    }
+
 }
