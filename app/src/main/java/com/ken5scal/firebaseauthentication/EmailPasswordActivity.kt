@@ -20,6 +20,11 @@ class EmailPasswordActivity : AppCompatActivity() {
         Log.d(TAG, user.toString())
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        signOut()
+    }
+
     private fun registerAccount(email: String, password: String) {
         mAuth!!.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
             if (task.isSuccessful) {
@@ -48,4 +53,7 @@ class EmailPasswordActivity : AppCompatActivity() {
         }
     }
 
+    private fun signOut() {
+        mAuth!!.signOut()
+    }
 }
