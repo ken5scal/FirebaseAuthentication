@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
-import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -58,29 +57,39 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     }
 
     private fun registerAccount(email: String, password: String) {
-        Log.d(TAG, "register by email/password:success")
         mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(this)
     }
 
     private fun signInWithEmailAndPassword(email: String, password: String) {
-        mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(this)
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "neither of email nor password can be empty", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        mAuth.signInWithEmailAndPassword(email, password)
 //        mAuth.sendPasswordResetEmail()
 //        mAuth.verifyPasswordResetCode()
 //        mAuth.fetchProvidersForEmail()
 //        mAuth.sendPasswordResetEmail()
 //        mAuth.checkActionCode()
+//        mAuth.currentUser.updateProfile()
+//        mAuth.currentUser.updatePassword()
+//        mAuth.currentUser.updateEmail()
+//        mAuth.currentUser.phoneNumber()
+//        mAuth.currentUser.
     }
 
     private fun updateResult(user: FirebaseUser) {
         mResult.visibility = View.VISIBLE
-        mResult.text = user.email + ":" +
-                user.providers + ":" +
-                user.displayName + ":" +
-                user.phoneNumber + ":" +
-                user.isEmailVerified
+        mResult.text = "email: " + user.email + "\n" +
+                "providers: " + user.providers + "\n" +
+                "display: " + user.displayName + "\n" +
+                "phone: " + user.phoneNumber + "\n" +
+                "email verified?:" + user.isEmailVerified
     }
 
     private fun signOut() {
+        mResult.text = ""
         mResult.visibility = View.GONE
         mAuth.signOut()
     }
