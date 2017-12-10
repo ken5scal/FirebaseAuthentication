@@ -1,5 +1,7 @@
 package com.ken5scal.firebaseauthentication
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
@@ -7,8 +9,14 @@ import com.google.firebase.auth.FirebaseAuth
 
 
 class EmailPasswordActivity : AppCompatActivity() {
-    val TAG = "emailActivity"
+    companion object {
+        private const val TAG = "emailActivity"
+        fun intent(context: Context): Intent =
+                Intent(context, EmailPasswordActivity::class.java)
+    }
+
     private var mAuth: FirebaseAuth? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mAuth = FirebaseAuth.getInstance()
