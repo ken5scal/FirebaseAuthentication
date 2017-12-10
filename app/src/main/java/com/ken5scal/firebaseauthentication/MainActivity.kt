@@ -6,51 +6,37 @@ import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import com.firebase.ui.auth.AuthUI
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity() {
     companion object {
-        private const val AUTH_UI_REQUEST = 123
+        private const val AUTH_UI_REQUEST = 1
     }
-
-    private var mAuth: FirebaseAuth? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        mAuth = FirebaseAuth.getInstance();
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
         fab.setOnClickListener {
-//            EmailPasswordActivity.intent(this).let { startActivity(it) }
-            val providers : List<AuthUI.IdpConfig> = listOf(
-                    AuthUI.IdpConfig.Builder(AuthUI.EMAIL_PROVIDER).build(),
-                    AuthUI.IdpConfig.Builder(AuthUI.PHONE_VERIFICATION_PROVIDER).build(),
-                    AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build()
-            )
-
-            startActivityForResult(
-                    AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(),
-                    AUTH_UI_REQUEST
-            )
+            EmailPasswordActivity.intent(this).let { startActivity(it) }
+//            val providers : List<AuthUI.IdpConfig> = listOf(
+//                    AuthUI.IdpConfig.Builder(AuthUI.EMAIL_PROVIDER).build(),
+//                    AuthUI.IdpConfig.Builder(AuthUI.PHONE_VERIFICATION_PROVIDER).build(),
+//                    AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build()
+//            )
+//
+//            startActivityForResult(
+//                    AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(),
+//                    AUTH_UI_REQUEST
+//            )
         }
-
-
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
-    }
-
-    override fun onStart() {
-        super.onStart()
-        var user: FirebaseUser? = mAuth?.currentUser
-        Log.d("UIAuth", user.toString())
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
