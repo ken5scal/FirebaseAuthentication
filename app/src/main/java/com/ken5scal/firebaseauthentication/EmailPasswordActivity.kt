@@ -57,7 +57,18 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     }
 
     private fun registerAccount(email: String, password: String) {
-        mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(this)
+        mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                mAuth.currentUser?.sendEmailVerification()?.addOnCompleteListener {
+                    if (task.isSuccessful) {
+                        Toast.makeText(this, "Email sent.", Toast.LENGTH_LONG).show()
+                    }
+                }
+                mAuth.signOut()
+            } else {
+                Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun signInWithEmailAndPassword(email: String, password: String) {
@@ -66,7 +77,21 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             return
         }
 
-        mAuth.signInWithEmailAndPassword(email, password)
+        mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
+                return@addOnCompleteListener
+            }
+
+            when (mAuth.currentUser?.isEmailVerified) {
+                true -> { mAuth.currentUser?.let { updateResult(it) }}
+                false -> {
+                    Toast.makeText(this, "Verify your account from email.", Toast.LENGTH_LONG).show()
+                    signOut()
+                }
+                null -> { Toast.makeText(this, "Something went wrong.", Toast.LENGTH_LONG).show() }
+            }
+        }
 //        mAuth.sendPasswordResetEmail()
 //        mAuth.verifyPasswordResetCode()
 //        mAuth.fetchProvidersForEmail()
