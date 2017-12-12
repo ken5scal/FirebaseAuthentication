@@ -27,10 +27,10 @@ class MainActivity : AppCompatActivity() {
                     AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build()
             )
 
-            startActivityForResult(
-                    AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(),
-                    AUTH_UI_REQUEST
-            )
+//            startActivityForResult(
+//                    AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(),
+//                    AUTH_UI_REQUEST
+//            )
         }
     }
 

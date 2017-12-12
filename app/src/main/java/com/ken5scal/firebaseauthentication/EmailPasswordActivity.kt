@@ -12,7 +12,9 @@ import android.widget.Toast
 import com.google.android.gms.auth.api.Auth
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.SignInButton
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.*
@@ -30,9 +32,11 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     private lateinit var mSignIn: Button
     private lateinit var mSignOut: Button
     private lateinit var mReset: Button
+    private lateinit var mGoogle: SignInButton
     private lateinit var mResult: TextView
     private lateinit var mEmail: TextView
     private lateinit var mPassword: TextView
+    private lateinit var mGoogleSignInClient: GoogleSignInClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,23 +61,23 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
         mSignOut = findViewById(R.id.sign_out)
         mSignOut.setOnClickListener(this)
 
-        var gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN)
-                .requestIdToken("211173608599-bfa9pkdhs22m1d10audi7344l1490ms7.apps.googleusercontent.com")
+        mGoogle = findViewById(R.id.google_button)
+        mGoogle.setOnClickListener(this)
+
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken()
                 .requestEmail().build()
-        var mGoogleSignInClient = GoogleSignIn.getClient(this, gso)
-        var signInIntent = mGoogleSignInClient.signInIntent
-        startActivityForResult(signInIntent, 1000)
+        mGoogleSignInClient = GoogleSignIn.getClient(this, gso)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1000) {
-            val result = Auth.GoogleSignInApi.getSignInResultFromIntent(data)
+            val task = Auth.GoogleSignInApi.getSignInResultFromIntent(data)
 
-            if (result.isSuccess) {
+            if (task.isSuccess) {
                 Log.d("GOOGLE", "signInWithCredential:Success")
-//                    mAuth.currentUser?.let { updateResult(it) }
-                result.signInAccount?.let { firebaseAuthWithGoogle(it) }
+                task.signInAccount?.let { firebaseAuthWithGoogle(it) }
             } else {
                 Log.w("GOOGLE", "signInWithCredential:failure", null)
                 Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show();
@@ -149,7 +153,8 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     }
 
     private fun firebaseAuthWithGoogle(acct: GoogleSignInAccount) {
-        var credential = GoogleAuthProvider.getCredential(acct.idToken, null)
+        Log.d("firebase google: ", acct.id)
+        val credential = GoogleAuthProvider.getCredential(acct.idToken, null)
         mAuth.signInWithCredential(credential).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 Log.d("GOOGLE", "signInWithCredential:Success")
@@ -167,6 +172,8 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             R.id.sign_in -> signInWithEmailAndPassword(mEmail.text.toString(), mPassword.text.toString())
             R.id.register -> registerAccount(mEmail.text.toString(), mPassword.text.toString())
             R.id.reset -> mAuth.currentUser?.let { resetPassword(it.email.toString()) }
+            R.id.google_button ->
+                startActivityForResult(mGoogleSignInClient.signInIntent, 1000)
         }
     }
 
