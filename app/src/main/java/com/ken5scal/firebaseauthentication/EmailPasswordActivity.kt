@@ -18,7 +18,6 @@ import com.google.android.gms.common.SignInButton
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseException
-import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
 import java.util.concurrent.TimeUnit
 
@@ -70,6 +69,7 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
         mGoogle.setOnClickListener(this)
 
         mPhoneNumber = findViewById(R.id.phone)
+        mPhoneNumber.setOnClickListener(this)
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken()
@@ -85,6 +85,13 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
                 TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
             }
 
+            override fun onCodeSent(p0: String?, p1: PhoneAuthProvider.ForceResendingToken?) {
+                super.onCodeSent(p0, p1)
+            }
+
+            override fun onCodeAutoRetrievalTimeOut(p0: String?) {
+                super.onCodeAutoRetrievalTimeOut(p0)
+            }
         }
     }
 
@@ -159,21 +166,7 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
                 60,
                 TimeUnit.SECONDS,
                 this,
-                object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                    override fun onVerificationCompleted(credential: PhoneAuthCredential?) {
-                        credential?.let { signInWithPhoneAuthCredential(it) }
-                    }
-
-                    override fun onVerificationFailed(e: FirebaseException?) {
-                        Log.w(TAG, "onVerificationFailed", e)
-
-                        if (e is FirebaseAuthInvalidCredentialsException) {
-                            Log.w(TAG, "onVerificationFailed", e)
-                        } else if (e is FirebaseTooManyRequestsException) {
-
-                        }
-                    }
-                }
+                mCallbacks
         )
     }
 
@@ -235,6 +228,7 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             R.id.sign_in -> signInWithEmailAndPassword(mEmail.text.toString(), mPassword.text.toString())
             R.id.register -> registerAccount(mEmail.text.toString(), mPassword.text.toString())
             R.id.reset -> mAuth.currentUser?.let { resetPassword(it.email.toString()) }
+            R.id.phone -> registerPhoneNumber(mPhoneNumber.text.toString())
             R.id.google_button -> startActivityForResult(mGoogleSignInClient.signInIntent, 1000)
         }
     }
