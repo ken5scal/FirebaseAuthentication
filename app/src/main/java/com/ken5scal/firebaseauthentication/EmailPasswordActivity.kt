@@ -17,10 +17,13 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.SignInButton
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
+import com.google.firebase.FirebaseException
+import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
+import java.util.concurrent.TimeUnit
+
 
 class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompleteListener<AuthResult> {
-
     companion object {
         private const val TAG = "emailActivity"
         fun intent(context: Context): Intent =
@@ -35,8 +38,10 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     private lateinit var mGoogle: SignInButton
     private lateinit var mResult: TextView
     private lateinit var mEmail: TextView
+    private lateinit var mPhoneNumber: TextView
     private lateinit var mPassword: TextView
     private lateinit var mGoogleSignInClient: GoogleSignInClient
+    private lateinit var mCallbacks: PhoneAuthProvider.OnVerificationStateChangedCallbacks
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,10 +69,23 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
         mGoogle = findViewById(R.id.google_button)
         mGoogle.setOnClickListener(this)
 
+        mPhoneNumber = findViewById(R.id.phone)
+
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken()
                 .requestEmail().build()
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso)
+
+        mCallbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+            override fun onVerificationCompleted(p0: PhoneAuthCredential?) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun onVerificationFailed(p0: FirebaseException?) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -102,6 +120,7 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
                 mAuth.signOut()
             } else {
                 Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
+                val credential = EmailAuthProvider.getCredential(email, password)
             }
         }
     }
@@ -123,14 +142,39 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
                     mAuth.currentUser?.let { updateResult(it) }
                 }
                 false -> {
-                    Toast.makeText(this, "Verify your account from email.", Toast.LENGTH_LONG).show()
-                    signOut()
+                    mAuth.currentUser?.let { updateResult(it) }
+//                    Toast.makeText(this, "Verify your account from email.", Toast.LENGTH_LONG).show()
+//                    signOut()
                 }
                 null -> {
                     Toast.makeText(this, "Something went wrong.", Toast.LENGTH_LONG).show()
                 }
             }
         }
+    }
+
+    private fun registerPhoneNumber(phoneNumber: String) {
+        PhoneAuthProvider.getInstance().verifyPhoneNumber(
+                phoneNumber,
+                60,
+                TimeUnit.SECONDS,
+                this,
+                object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                    override fun onVerificationCompleted(credential: PhoneAuthCredential?) {
+                        credential?.let { signInWithPhoneAuthCredential(it) }
+                    }
+
+                    override fun onVerificationFailed(e: FirebaseException?) {
+                        Log.w(TAG, "onVerificationFailed", e)
+
+                        if (e is FirebaseAuthInvalidCredentialsException) {
+                            Log.w(TAG, "onVerificationFailed", e)
+                        } else if (e is FirebaseTooManyRequestsException) {
+
+                        }
+                    }
+                }
+        )
     }
 
     private fun resetPassword(email: String) {
@@ -157,10 +201,29 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
         val credential = GoogleAuthProvider.getCredential(acct.idToken, null)
         mAuth.signInWithCredential(credential).addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                Log.d("GOOGLE", "signInWithCredential:Success")
                 mAuth.currentUser?.let { updateResult(it) }
+
+                // Link Email Provider account
+                val credential = EmailAuthProvider.getCredential("kengoscal@gmail.com", "111111")
+                mAuth.currentUser?.linkWithCredential(credential)?.addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        mAuth.currentUser?.let { updateResult(it) }
+                    } else {
+                        Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
+                    }
+                }
             } else {
                 Log.w("GOOGLE", "signInWithCredential:failure", task.exception)
+                Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential) {
+        mAuth.signInWithCredential(credential).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+            } else {
+                Log.w("Phone", "signInWithPhoneAuthCredential:failure", task.exception)
                 Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show();
             }
         }
@@ -172,8 +235,7 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             R.id.sign_in -> signInWithEmailAndPassword(mEmail.text.toString(), mPassword.text.toString())
             R.id.register -> registerAccount(mEmail.text.toString(), mPassword.text.toString())
             R.id.reset -> mAuth.currentUser?.let { resetPassword(it.email.toString()) }
-            R.id.google_button ->
-                startActivityForResult(mGoogleSignInClient.signInIntent, 1000)
+            R.id.google_button -> startActivityForResult(mGoogleSignInClient.signInIntent, 1000)
         }
     }
 
