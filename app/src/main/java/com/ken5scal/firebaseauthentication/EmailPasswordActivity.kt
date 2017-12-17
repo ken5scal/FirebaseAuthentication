@@ -23,6 +23,7 @@ import com.google.firebase.FirebaseException
 import com.google.firebase.auth.*
 import java.util.*
 import java.util.concurrent.Callable
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 
 
@@ -82,7 +83,8 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             }
         }
 
-        val playList = Tasks.call(CarlyCallable())
+        val executor = ThreadPerTaskExecutor()
+        val playList = Tasks.call(executor, CarlyCallable())
                 .continueWith(SeparateWays())
                 .continueWith(AllShookUp())
                 .continueWith(ComeTogether())
@@ -131,7 +133,8 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             return
         }
 
-        mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
+        val signInTask = mAuth.signInWithEmailAndPassword(email, password)
+        signInTask.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
                 return@addOnCompleteListener
@@ -152,8 +155,20 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             }
         }
 
-//        mAuth.signInWithEmailAndPassword(email, password)
-//                .continueWithTask(mAuth.)
+
+        // If 2SV with SMS is On...
+        signInTask
+                .continueWith(Send2FAVerificationCodeToSMS(ThreadPerTaskExecutor(), mCallbacks))
+                .addOnCompleteListener { task ->
+                    signOut()
+
+                    if (!task.isSuccessful) {
+                        Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
+                        return@addOnCompleteListener
+                    } else {
+                        mAuth.currentUser?.let { updateResult(it) }
+                    }
+                }
     }
 
     private fun registerPhoneNumber(phoneNumber: String) {
@@ -167,8 +182,23 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     }
 
     private fun sendSMSBased2FACode(code: String) {
+        if (mSMSVerificationID.isNullOrEmpty()) {
+            return
+        }
         val credential = PhoneAuthProvider.getCredential(mSMSVerificationID, code)
         signInWithPhoneAuthCredential(credential)
+    }
+
+    private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential) {
+
+        mAuth.signInWithCredential(credential).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                mAuth.currentUser?.let { updateResult(it) }
+            } else {
+                Log.w("Phone", "signInWithPhoneAuthCredential:failure", task.exception)
+                Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private fun resetPassword(email: String) {
@@ -223,16 +253,6 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
         }
     }
 
-    private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential) {
-        mAuth.signInWithCredential(credential).addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-            } else {
-                Log.w("Phone", "signInWithPhoneAuthCredential:failure", task.exception)
-                Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
 
     override fun onClick(view: View?) {
         when (view?.id) {
@@ -255,14 +275,15 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     }
 }
 
-class CarlyCallable : Callable<String> {
+internal class CarlyCallable : Callable<String> {
     override fun call(): String {
         Log.d("CarlyCallable", "getcalled")
         return "Call me maybe."
     }
 }
 
-class SeparateWays : Continuation<String, List<String>> {
+
+internal class SeparateWays : Continuation<String, List<String>> {
     override fun then(task: Task<String>): List<String> {
         Log.d("SeparateWays", "getcalled")
         Log.d("SeparateWays", task.result.split(" ").toString())
@@ -270,7 +291,7 @@ class SeparateWays : Continuation<String, List<String>> {
     }
 }
 
-class AllShookUp : Continuation<List<String>, List<String>> {
+internal class AllShookUp : Continuation<List<String>, List<String>> {
     override fun then(task: Task<List<String>>): List<String> {
         Log.d("AllShookUp", "getcalled")
         val shookUp = ArrayList(task.result)
@@ -280,7 +301,7 @@ class AllShookUp : Continuation<List<String>, List<String>> {
     }
 }
 
-class ComeTogether : Continuation<List<String>, String> {
+internal class ComeTogether : Continuation<List<String>, String> {
     override fun then(task: Task<List<String>>): String {
         Log.d("ComeTogether", "getcalled")
         val sb = StringBuilder()
@@ -292,5 +313,29 @@ class ComeTogether : Continuation<List<String>, String> {
         }
         Log.d("ComeTogether", sb.toString())
         return sb.toString()
+    }
+}
+
+internal class ThreadPerTaskExecutor : Executor {
+    override fun execute(r: Runnable) {
+        Thread(r).start()
+    }
+}
+
+internal class Send2FAVerificationCodeToSMS(
+        private val executor: Executor,
+        private val callback: PhoneAuthProvider.OnVerificationStateChangedCallbacks) : Continuation<AuthResult, Unit> {
+    override fun then(task: Task<AuthResult>) {
+        if (!task.isSuccessful || task.result.user.phoneNumber.isNullOrEmpty()) {
+            return //Do Nothing
+        }
+        // Else, send verification code.
+        PhoneAuthProvider.getInstance().verifyPhoneNumber(
+                task.result.user.phoneNumber.toString(), // Needs to be E.164 format. eg. +81805541xxxx(Japan), [+][country code][subscribed number with area code]
+                10,
+                TimeUnit.SECONDS,
+                executor,
+                callback
+        )
     }
 }
