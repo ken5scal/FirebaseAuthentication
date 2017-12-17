@@ -15,10 +15,13 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.SignInButton
+import com.google.android.gms.tasks.Continuation
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.*
+import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 
 
@@ -30,17 +33,12 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     }
 
     private lateinit var mAuth: FirebaseAuth
-    private lateinit var mRegister: Button
-    private lateinit var mSignIn: Button
-    private lateinit var mSignOut: Button
-    private lateinit var mReset: Button
-    private lateinit var mGoogle: SignInButton
     private lateinit var mResult: TextView
     private lateinit var mEmail: TextView
-    private lateinit var mPhoneNumber: TextView
     private lateinit var mPassword: TextView
     private lateinit var mGoogleSignInClient: GoogleSignInClient
     private lateinit var mCallbacks: PhoneAuthProvider.OnVerificationStateChangedCallbacks
+    private lateinit var mSMSVerificationID: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,27 +47,16 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
         mAuth = FirebaseAuth.getInstance()
 
         mResult = findViewById(R.id.result)
-
         mEmail = findViewById(R.id.email)
         mPassword = findViewById(R.id.password)
 
-        mRegister = findViewById(R.id.register)
-        mRegister.setOnClickListener(this)
-
-        mSignIn = findViewById(R.id.sign_in)
-        mSignIn.setOnClickListener(this)
-
-        mReset = findViewById(R.id.reset)
-        mReset.setOnClickListener(this)
-
-        mSignOut = findViewById(R.id.sign_out)
-        mSignOut.setOnClickListener(this)
-
-        mGoogle = findViewById(R.id.google_button)
-        mGoogle.setOnClickListener(this)
-
-        mPhoneNumber = findViewById(R.id.phone)
-        mPhoneNumber.setOnClickListener(this)
+        findViewById<Button>(R.id.register).setOnClickListener(this)
+        findViewById<Button>(R.id.sign_in).setOnClickListener(this)
+        findViewById<Button>(R.id.reset).setOnClickListener(this)
+        findViewById<Button>(R.id.sign_out).setOnClickListener(this)
+        findViewById<Button>(R.id.register_phone).setOnClickListener(this)
+        findViewById<Button>(R.id.send_sms_based_2fa_code).setOnClickListener(this)
+        findViewById<SignInButton>(R.id.google_button).setOnClickListener(this)
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken()
@@ -78,21 +65,24 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
 
         mCallbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(p0: PhoneAuthCredential?) {
-                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                Toast.makeText(this@EmailPasswordActivity, ": Verification Completed", Toast.LENGTH_SHORT).show()
             }
 
             override fun onVerificationFailed(p0: FirebaseException?) {
-                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                Toast.makeText(this@EmailPasswordActivity, p0?.message, Toast.LENGTH_SHORT).show()
             }
 
             override fun onCodeSent(p0: String?, p1: PhoneAuthProvider.ForceResendingToken?) {
-                super.onCodeSent(p0, p1)
+                mSMSVerificationID = p0.toString()
             }
 
             override fun onCodeAutoRetrievalTimeOut(p0: String?) {
-                super.onCodeAutoRetrievalTimeOut(p0)
+                mSMSVerificationID = p0.toString()
             }
         }
+
+        val task = Tasks.call(HogeCallable()) // This calls call() inside the HogeCallable
+        task.addOnCompleteListener { Log.d("hoge", "fugafuga") }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -127,7 +117,6 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
                 mAuth.signOut()
             } else {
                 Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
-                val credential = EmailAuthProvider.getCredential(email, password)
             }
         }
     }
@@ -158,16 +147,24 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
                 }
             }
         }
+
+//        mAuth.signInWithEmailAndPassword(email, password)
+//                .continueWithTask(mAuth.)
     }
 
     private fun registerPhoneNumber(phoneNumber: String) {
         PhoneAuthProvider.getInstance().verifyPhoneNumber(
-                phoneNumber,
-                60,
+                phoneNumber, // Needs to be E.164 format. eg. +81805541xxxx(Japan), [+][country code][subscribed number with area code]
+                10,
                 TimeUnit.SECONDS,
-                this,
+                this@EmailPasswordActivity,
                 mCallbacks
         )
+    }
+
+    private fun sendSMSBased2FACode(code: String) {
+        val credential = PhoneAuthProvider.getCredential(mSMSVerificationID, code)
+        signInWithPhoneAuthCredential(credential)
     }
 
     private fun resetPassword(email: String) {
@@ -197,8 +194,18 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
                 mAuth.currentUser?.let { updateResult(it) }
 
                 // Link Email Provider account
-                val credential = EmailAuthProvider.getCredential("kengoscal@gmail.com", "111111")
-                mAuth.currentUser?.linkWithCredential(credential)?.addOnCompleteListener { task ->
+                val emailCredential = EmailAuthProvider.getCredential("kengoscal@gmail.com", "111111")
+                mAuth.currentUser?.linkWithCredential(emailCredential)?.addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        mAuth.currentUser?.let { updateResult(it) }
+                    } else {
+                        Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
+                    }
+                }
+
+                // Link Phone Provider Account
+                val smsCredential = PhoneAuthProvider.getCredential(mSMSVerificationID, findViewById<TextView>(R.id.mfa_code).text.toString())
+                mAuth.currentUser?.linkWithCredential(smsCredential)?.addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         mAuth.currentUser?.let { updateResult(it) }
                     } else {
@@ -222,13 +229,15 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
         }
     }
 
+
     override fun onClick(view: View?) {
         when (view?.id) {
             R.id.sign_out -> signOut()
             R.id.sign_in -> signInWithEmailAndPassword(mEmail.text.toString(), mPassword.text.toString())
             R.id.register -> registerAccount(mEmail.text.toString(), mPassword.text.toString())
             R.id.reset -> mAuth.currentUser?.let { resetPassword(it.email.toString()) }
-            R.id.phone -> registerPhoneNumber(mPhoneNumber.text.toString())
+            R.id.register_phone -> registerPhoneNumber(findViewById<TextView>(R.id.phone).text.toString())
+            R.id.send_sms_based_2fa_code -> sendSMSBased2FACode(findViewById<TextView>(R.id.mfa_code).text.toString())
             R.id.google_button -> startActivityForResult(mGoogleSignInClient.signInIntent, 1000)
         }
     }
@@ -240,5 +249,17 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             Toast.makeText(this, task.exception?.message, Toast.LENGTH_LONG).show()
         }
     }
+}
 
+class HogeCallable : Callable<String> {
+    override fun call(): String {
+        Log.d("HOgecallble", "getcalled")
+        return "Call me maybe."
+    }
+}
+
+class SeparateWays : Continuation<String, List<String>> {
+    override fun then(task: Task<String>): List<String> {
+        return ArrayList(task.result.split(" +"))
+    }
 }

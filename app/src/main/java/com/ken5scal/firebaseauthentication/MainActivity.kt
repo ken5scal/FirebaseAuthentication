@@ -6,7 +6,6 @@ import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import com.firebase.ui.auth.AuthUI
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.android.synthetic.main.activity_main.*
 
@@ -21,16 +20,6 @@ class MainActivity : AppCompatActivity() {
 
         fab.setOnClickListener {
             EmailPasswordActivity.intent(this).let { startActivity(it) }
-            val providers : List<AuthUI.IdpConfig> = listOf(
-                    AuthUI.IdpConfig.Builder(AuthUI.EMAIL_PROVIDER).build(),
-                    AuthUI.IdpConfig.Builder(AuthUI.PHONE_VERIFICATION_PROVIDER).build(),
-                    AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build()
-            )
-
-//            startActivityForResult(
-//                    AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build(),
-//                    AUTH_UI_REQUEST
-//            )
         }
     }
 
