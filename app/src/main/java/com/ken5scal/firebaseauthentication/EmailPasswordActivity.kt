@@ -21,6 +21,7 @@ import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.*
+import java.util.*
 import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 
@@ -81,8 +82,11 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
             }
         }
 
-        val task = Tasks.call(HogeCallable()) // This calls call() inside the HogeCallable
-        task.addOnCompleteListener { Log.d("hoge", "fugafuga") }
+        val playList = Tasks.call(CarlyCallable())
+                .continueWith(SeparateWays())
+                .continueWith(AllShookUp())
+                .continueWith(ComeTogether())
+        playList.addOnSuccessListener { s -> Log.d("playlist", s) }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -251,15 +255,42 @@ class EmailPasswordActivity : AppCompatActivity(), View.OnClickListener, OnCompl
     }
 }
 
-class HogeCallable : Callable<String> {
+class CarlyCallable : Callable<String> {
     override fun call(): String {
-        Log.d("HOgecallble", "getcalled")
+        Log.d("CarlyCallable", "getcalled")
         return "Call me maybe."
     }
 }
 
 class SeparateWays : Continuation<String, List<String>> {
     override fun then(task: Task<String>): List<String> {
-        return ArrayList(task.result.split(" +"))
+        Log.d("SeparateWays", "getcalled")
+        Log.d("SeparateWays", task.result.split(" ").toString())
+        return ArrayList(task.result.split(" "))
+    }
+}
+
+class AllShookUp : Continuation<List<String>, List<String>> {
+    override fun then(task: Task<List<String>>): List<String> {
+        Log.d("AllShookUp", "getcalled")
+        val shookUp = ArrayList(task.result)
+        Collections.shuffle(shookUp)
+        Log.d("AllShookUp", shookUp.toString())
+        return shookUp
+    }
+}
+
+class ComeTogether : Continuation<List<String>, String> {
+    override fun then(task: Task<List<String>>): String {
+        Log.d("ComeTogether", "getcalled")
+        val sb = StringBuilder()
+        for (word in task.result) {
+            if (sb.isNotEmpty()) {
+                sb.append(' ')
+            }
+            sb.append(word)
+        }
+        Log.d("ComeTogether", sb.toString())
+        return sb.toString()
     }
 }
